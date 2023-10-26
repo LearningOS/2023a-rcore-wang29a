@@ -25,9 +25,30 @@ mod fs;
 mod process;
 
 use fs::*;
-use process::*;
+// use lazy_static::lazy_static;
+pub use process::*;
+
+use crate::timer::get_time_ms;
+
+// use crate::{task::TaskStatus, config::MAX_SYSCALL_NUM};
+// lazy_static!{
+//     pub static ref TASK_INFO: TaskInfo = TaskInfo{
+//         status: TaskStatus::Running,
+//         syscall_times: [0; MAX_SYSCALL_NUM],
+//         time: 0,
+//     };
+// }
+///
+pub static mut TASK_INFO: Option<*mut TaskInfo> = None;
+
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
+    unsafe {
+        if let Some(x) = TASK_INFO {
+            (*x).sys_times_plus(syscall_id);
+            (*x).time = get_time_ms();
+        };
+    }
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),

@@ -14,9 +14,11 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-use crate::config::MAX_APP_NUM;
+use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::syscall::{TaskInfo, TASK_INFO};
+use crate::timer::get_time_ms;
 use lazy_static::*;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -53,6 +55,12 @@ lazy_static! {
         let num_app = get_num_app();
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
+            task_info: TaskInfo{
+                status: TaskStatus::Running,
+                syscall_times: [0; MAX_SYSCALL_NUM],
+                time: 0,
+            },
+            first_time: 0,
             task_status: TaskStatus::UnInit,
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
@@ -81,6 +89,10 @@ impl TaskManager {
         let task0 = &mut inner.tasks[0];
         task0.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        inner.tasks[0].first_time = get_time_ms();
+        unsafe {
+            TASK_INFO = Some(&mut inner.tasks[0].task_info as *mut TaskInfo);
+        }
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -125,6 +137,21 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            unsafe {
+                if let Some(x) = TASK_INFO{
+                    // (*x).sys_times_plus(169);
+                    inner.tasks[current].task_info = (*x).clone();
+                    // info!("x:{}", x as usize);
+                    // info!("current task:{} time:{}", current, (*x).syscall_times[169]);
+                    // info!("next task:{} time:{}", next, (*x).syscall_times[169]);
+                    // assert!((*x).syscall_times[169]>=1)
+                };
+                TASK_INFO = Some(&mut inner.tasks[next].task_info as *mut TaskInfo);
+            }
+            if inner.tasks[next].first_time == 0{
+                inner.tasks[next].first_time = get_time_ms();
+            }
+            inner.tasks[next].task_info.time = get_time_ms()-inner.tasks[next].first_time;
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {
