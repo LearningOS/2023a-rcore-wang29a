@@ -1,6 +1,7 @@
 //! Implementation of [`PageTableEntry`] and [`PageTable`].
 use super::{frame_alloc, FrameTracker, PhysAddr, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
 use alloc::string::String;
+
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
@@ -212,4 +213,16 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .translate_va(VirtAddr::from(va))
         .unwrap()
         .get_mut()
+}
+/// retuern user data Physaddr
+pub fn user_data<T>(token: usize, ptr: *const T) -> *mut T{
+    let page_table = PageTable::from_token(token);
+    let start = ptr as usize;
+    // let end = start + size;
+    let start_va = VirtAddr::from(start);
+    let vpn = start_va.floor();
+    let ppn = page_table.translate(vpn).unwrap().ppn();
+    let pa = PhysAddr::from(ppn);
+    let offset = start_va.page_offset();
+    (usize::from(pa) +offset) as *mut T
 }
