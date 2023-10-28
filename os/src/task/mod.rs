@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::{VirtAddr, MapPermission};
 use crate::sync::UPSafeCell;
 use crate::syscall::{TASK_INFO, TaskInfo};
 use crate::timer::get_time_ms;
@@ -169,6 +170,12 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+    /// map new pages
+    pub fn insert(&self, start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.insert_framed_area(start_va, end_va, permission);
+    }
 }
 
 /// Run the first task in task list.
@@ -217,4 +224,9 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// map new page
+pub fn insert(start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission){
+    TASK_MANAGER.insert(start_va, end_va, permission);
 }
