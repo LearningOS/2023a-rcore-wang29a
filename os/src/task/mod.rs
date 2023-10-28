@@ -16,6 +16,8 @@ mod task;
 
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
+use crate::syscall::{TASK_INFO, TaskInfo};
+use crate::timer::get_time_ms;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
 use lazy_static::*;
@@ -80,6 +82,10 @@ impl TaskManager {
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
+        inner.tasks[0].first_time = get_time_ms();
+        unsafe {
+            TASK_INFO = Some(&mut inner.tasks[0].task_info as *mut TaskInfo);
+        }
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -143,6 +149,16 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            unsafe {
+                if let Some(x) = TASK_INFO{
+                    inner.tasks[current].task_info = (*x).clone();
+                };
+                TASK_INFO = Some(&mut inner.tasks[next].task_info as *mut TaskInfo);
+            }
+            if inner.tasks[next].first_time == 0{
+                inner.tasks[next].first_time = get_time_ms();
+            }
+            inner.tasks[next].task_info.time = get_time_ms()-inner.tasks[next].first_time;
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {

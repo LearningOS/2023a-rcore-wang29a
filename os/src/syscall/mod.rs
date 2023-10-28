@@ -29,9 +29,20 @@ mod fs;
 mod process;
 
 use fs::*;
-use process::*;
+pub use process::*;
+
+use crate::timer::get_time_ms;
+
+///global var
+pub static mut TASK_INFO: Option<*mut TaskInfo> = None;
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
+    unsafe {
+        if let Some(x) = TASK_INFO {
+            (*x).syscall_times[syscall_id] += 1;
+            (*x).time = get_time_ms();
+        };
+    }
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
