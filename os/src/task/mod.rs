@@ -21,7 +21,7 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-use crate::loader::get_app_data_by_name;
+use crate::{loader::get_app_data_by_name, mm::{VirtAddr, MapPermission}};
 use alloc::sync::Arc;
 // use crate::loader::{get_app_data, get_num_app};
 // use crate::sync::UPSafeCell;
@@ -120,4 +120,22 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+/// map new page
+pub fn push(start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) -> isize{
+    let task = take_current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    let ret: isize = task_inner.memory_set.mmap(start_va, end_va, permission);
+    drop(task_inner);
+    ret
+}
+
+/// unmap
+pub fn pop(start_va:VirtAddr, end_va:VirtAddr) -> isize{
+    let task = take_current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    let ret: isize = task_inner.memory_set.munmap(start_va, end_va);
+    drop(task_inner);
+    ret
 }

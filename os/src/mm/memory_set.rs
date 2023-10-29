@@ -34,6 +34,8 @@ lazy_static! {
 pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
+    x: BTreeMap<(VirtAddr, VirtAddr), bool>,
+    y: BTreeMap<(VirtPageNum, VirtPageNum), bool>,
 }
 
 impl MemorySet {
@@ -42,6 +44,8 @@ impl MemorySet {
         Self {
             page_table: PageTable::new(),
             areas: Vec::new(),
+            x: BTreeMap::new(),
+            y: BTreeMap::new(),
         }
     }
     /// Get the page table token
@@ -70,6 +74,73 @@ impl MemorySet {
         {
             area.unmap(&mut self.page_table);
             self.areas.remove(idx);
+        }
+    }
+    /// 
+    pub fn mmap(
+        &mut self,
+        start_va: VirtAddr,
+        end_va: VirtAddr,
+        permission: MapPermission,
+    ) -> isize{
+        let start_vpn: VirtPageNum = start_va.floor();
+        let end_vpn: VirtPageNum = end_va.ceil();
+        info!("map vpn {} {}", start_vpn.0, end_vpn.0);
+        // for x in &self.areas {
+        //     for vpn in x.vpn_range {
+        //         // info!("{}", vpn.0);
+        //         // if vpn == start_vpn || vpn == end_vpn {
+        //         //     return -1
+        //         // }
+        //     }
+        // }
+        for (&(l, r), _) in &self.y {
+            for vpn in VPNRange::new(l, r){
+                // if (start_va >= l && start_va < r) ||
+                //    (end_va >= l && end_va < r)
+                info!("{} {} {}", vpn.0, start_vpn.0, end_vpn.0);
+                if vpn >= start_vpn && vpn < end_vpn {
+                    return -1
+                }
+            }
+        }
+        info!("map va {} {}", start_va.0, end_va.0);
+        self.x.insert((start_va, end_va), true);
+        self.y.insert((start_vpn, end_vpn), true);
+        self.push(
+            MapArea::new(start_va, end_va, MapType::Framed, permission),
+            None,
+        );
+        // info!("map va{} {}", start_va.0, end_va.0);
+        // self.x.insert((start_va, end_va), true);
+        // self.push(
+        //     MapArea::new(start_va, end_va, MapType::Framed, permission),
+        //     None,
+        // );
+        0
+    }
+    ///
+    pub fn munmap(
+        &mut self,
+        start_va: VirtAddr,
+        end_va: VirtAddr,
+    ) -> isize {
+        let start_vpn: VirtPageNum = start_va.floor();
+        let end_vpn: VirtPageNum = end_va.ceil();
+        info!("munmap vpn {} {}", start_vpn.0, end_vpn.0);
+        let value = self.x.get(&(start_va, end_va));
+        match value {
+            Some(_) => {
+                MapArea::new(start_va, end_va, MapType::Framed, MapPermission::U).unmap(&mut self.page_table);
+                self.x.remove(&(start_va, end_va));
+                self.y.remove(&(start_vpn, end_vpn));
+                info!("0");
+                0
+            }
+            None => {
+                info!("-1");
+                -1
+            }
         }
     }
     /// Add a new MapArea into this MemorySet.

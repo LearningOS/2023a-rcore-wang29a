@@ -4,10 +4,10 @@ use alloc::sync::Arc;
 use crate::{
     config::MAX_SYSCALL_NUM,
     loader::get_app_data_by_name,
-    mm::{translated_refmut, translated_str, user_data,},
+    mm::{translated_refmut, translated_str, user_data, VirtAddr, MapPermission,},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next, TaskStatus,
+        suspend_current_and_run_next, TaskStatus, push, pop,
     }, 
     timer::get_time_us, syscall::TASK_INFO,
 };
@@ -162,21 +162,37 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
 }
 
 /// YOUR JOB: Implement mmap.
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
+    trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
+    let mut ret: isize = -1;
+    // let ret: isize = -1;
+    if (start &(4096-1)) !=0 || (port & !0x7) != 0 || port & 0x7 == 0 {
+        return ret
+    }
+    let permission: MapPermission = 
+        match port{
+            1 => MapPermission::R | MapPermission::U,
+            2 => MapPermission::W | MapPermission::U,
+            3 => MapPermission::R | MapPermission::W | MapPermission::U,
+            4 => MapPermission::X | MapPermission::U,
+            5 => MapPermission::X | MapPermission::R | MapPermission::U,
+            6 => MapPermission::X | MapPermission::W | MapPermission::U,
+            7 => MapPermission::X | MapPermission::W | MapPermission::R | MapPermission::U,
+            _ => return ret
+        };
+
+    info!("mmap {} {}", start, len);
+    ret = push(VirtAddr::from(start), VirtAddr::from(start+len), permission);
+    ret
 }
 
 /// YOUR JOB: Implement munmap.
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
+    let ret:isize;
+    info!("munmap {} {}", start, len);
+    ret = pop(VirtAddr(start), VirtAddr(start+len));
+    ret
 }
 
 /// change data segment size
