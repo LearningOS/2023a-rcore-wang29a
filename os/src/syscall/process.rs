@@ -2,8 +2,8 @@
 use crate::{
     config::MAX_SYSCALL_NUM,
     task::{
-        change_program_brk, exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token, insert,
-    }, mm::{user_data, MapPermission, VirtAddr}, timer::get_time_us, syscall::TASK_INFO,
+        change_program_brk, exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token, push, pop,
+    }, mm::{user_data, VirtAddr, MapPermission}, timer::get_time_us, syscall::TASK_INFO,
 };
 
 #[repr(C)]
@@ -85,32 +85,36 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
 ///
 pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
     trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
-    let mut ret: isize = 1;
-    if (start &(4096-1)) !=0 || port & !0x7 != 0 || port & 0x7 == 0 {
+    let mut ret: isize = -1;
+    // let ret: isize = -1;
+    if (start &(4096-1)) !=0 || (port & !0x7) != 0 || port & 0x7 == 0 {
         return ret
     }
     let permission: MapPermission = 
         match port{
-            1 => MapPermission::R,
-            2 => MapPermission::W,
-            3 => MapPermission::R |MapPermission::W,
-            4 => MapPermission::X ,
-            5 => MapPermission::X | MapPermission::R,
-            6 => MapPermission::X | MapPermission::W,
-            7 => MapPermission::X | MapPermission::W | MapPermission::R,
+            1 => MapPermission::R | MapPermission::U,
+            2 => MapPermission::W | MapPermission::U,
+            3 => MapPermission::R | MapPermission::W | MapPermission::U,
+            4 => MapPermission::X | MapPermission::U,
+            5 => MapPermission::X | MapPermission::R | MapPermission::U,
+            6 => MapPermission::X | MapPermission::W | MapPermission::U,
+            7 => MapPermission::X | MapPermission::W | MapPermission::R | MapPermission::U,
             _ => return ret
         };
 
-    insert(VirtAddr::from(start), VirtAddr::from(start+len), permission);
-    ret = 0;
+    info!("mmap {} {}", start, len);
+    ret = push(VirtAddr::from(start), VirtAddr::from(start+len), permission);
     ret
 }
 
 // YOUR JOB: Implement munmap.
 ///
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
+pub fn sys_munmap(start: usize, len: usize) -> isize {
     trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
-    -1
+    let ret:isize;
+    info!("munmap {} {}", start, len);
+    ret = pop(VirtAddr(start), VirtAddr(start+len));
+    ret
 }
 /// change data segment size
 pub fn sys_sbrk(size: i32) -> isize {

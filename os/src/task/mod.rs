@@ -171,10 +171,21 @@ impl TaskManager {
         }
     }
     /// map new pages
-    pub fn insert(&self, start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) {
+    pub fn push(&self, start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) -> isize{
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].memory_set.insert_framed_area(start_va, end_va, permission);
+        let ret: isize = inner.tasks[current].memory_set.mmap(start_va, end_va, permission);
+        drop(inner);
+        ret
+    }
+    ///
+    pub fn pop(&self, start_va:VirtAddr, end_va:VirtAddr) -> isize{
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let ret = inner.tasks[current].memory_set.munmap(start_va, end_va);
+        drop(inner);
+        ret
+
     }
 }
 
@@ -227,6 +238,11 @@ pub fn change_program_brk(size: i32) -> Option<usize> {
 }
 
 /// map new page
-pub fn insert(start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission){
-    TASK_MANAGER.insert(start_va, end_va, permission);
+pub fn push(start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) -> isize{
+    return TASK_MANAGER.push(start_va, end_va, permission);
+}
+
+/// unmap
+pub fn pop(start_va:VirtAddr, end_va:VirtAddr) -> isize{
+    return TASK_MANAGER.pop(start_va, end_va);
 }
