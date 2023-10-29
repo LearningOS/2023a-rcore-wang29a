@@ -1,1 +1,1 @@
-[https://wang29a.github.io/2023/10/25/rcore-ch3/](ch3)
+[ch3](https://wang29a.github.io/2023/10/25/rcore-ch3/)
