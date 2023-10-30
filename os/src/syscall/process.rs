@@ -5,9 +5,12 @@ use crate::{
     config::MAX_SYSCALL_NUM,
     loader::get_app_data_by_name,
     mm::{translated_refmut, translated_str, user_data, VirtAddr, MapPermission,},
+    // mm::{translated_refmut, translated_str, user_data, MapPermission,},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
         suspend_current_and_run_next, TaskStatus, push, pop,
+        // suspend_current_and_run_next, TaskStatus, push,
+        // suspend_current_and_run_next, TaskStatus,
     }, 
     timer::get_time_us, syscall::TASK_INFO,
 };
@@ -181,7 +184,7 @@ pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
             _ => return ret
         };
 
-    info!("mmap {} {}", start, len);
+    info!("mmap {} {} {}", start, len, port);
     ret = push(VirtAddr::from(start), VirtAddr::from(start+len), permission);
     ret
 }

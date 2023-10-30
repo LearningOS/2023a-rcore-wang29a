@@ -124,18 +124,21 @@ pub fn add_initproc() {
 
 /// map new page
 pub fn push(start_va:VirtAddr, end_va:VirtAddr, permission: MapPermission) -> isize{
-    let task = take_current_task().unwrap();
+    let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let ret: isize = task_inner.memory_set.mmap(start_va, end_va, permission);
     drop(task_inner);
+    drop(task);
+    info!("end");
     ret
 }
 
 /// unmap
 pub fn pop(start_va:VirtAddr, end_va:VirtAddr) -> isize{
-    let task = take_current_task().unwrap();
+    let task = current_task().unwrap();
     let mut task_inner = task.inner_exclusive_access();
     let ret: isize = task_inner.memory_set.munmap(start_va, end_va);
     drop(task_inner);
+    drop(task);
     ret
 }
