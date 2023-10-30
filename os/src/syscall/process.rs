@@ -145,7 +145,7 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TaskInfo`] is splitted by two pages ?
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    trace!("kernel: sys_task_info NOT IMPLEMENTED YET!");
+    trace!("kernel: sys_task_info");
     let ptr = user_data(current_user_token(), ti);
     unsafe {
         match TASK_INFO{
@@ -166,7 +166,7 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
 
 /// YOUR JOB: Implement mmap.
 pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
-    trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
+    trace!("kernel: sys_mmap");
     let mut ret: isize = -1;
     // let ret: isize = -1;
     if (start &(4096-1)) !=0 || (port & !0x7) != 0 || port & 0x7 == 0 {
@@ -191,7 +191,7 @@ pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
 
 /// YOUR JOB: Implement munmap.
 pub fn sys_munmap(start: usize, len: usize) -> isize {
-    trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
+    trace!("kernel: sys_munmap");
     let ret:isize;
     info!("munmap {} {}", start, len);
     ret = pop(VirtAddr(start), VirtAddr(start+len));
@@ -232,10 +232,16 @@ pub fn sys_spawn(path: *const u8) -> isize {
 }
 
 /// YOUR JOB: Set task priority.
-pub fn sys_set_priority(_prio: isize) -> isize {
+pub fn sys_set_priority(prio: isize) -> isize {
     trace!(
         "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if prio < 2 {
+        return -1
+    }
+    let current_task = current_task().unwrap();
+    let mut task_inner = current_task.inner_exclusive_access();
+    task_inner.pass = prio as usize;
+    prio
 }

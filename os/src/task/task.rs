@@ -74,6 +74,12 @@ pub struct TaskControlBlockInner {
     pub task_info: TaskInfo,
     /// first time
     pub first_time: usize,
+
+    ///stride
+    pub stride: usize,
+
+    /// pass
+    pub pass: usize,
 }
 
 impl TaskControlBlockInner {
@@ -129,7 +135,9 @@ impl TaskControlBlock {
                         syscall_times: [0; MAX_SYSCALL_NUM],
                         time: 0,
                     },
-                    first_time: 0
+                    first_time: 0,
+                    stride: 0,
+                    pass: 16,
                 })
             },
         };
@@ -176,7 +184,9 @@ impl TaskControlBlock {
                         syscall_times: [0; MAX_SYSCALL_NUM],
                         time: 0,
                     },
-                    first_time: 0
+                    first_time: 0,
+                    stride: parent_inner.stride,
+                    pass: parent_inner.pass,
                 })
             }
         });
@@ -257,7 +267,9 @@ impl TaskControlBlock {
                         syscall_times: [0; MAX_SYSCALL_NUM],
                         time: 0,
                     },
-                    first_time: 0
+                    first_time: 0,
+                    stride: 0,
+                    pass: 16,
                 })
             },
         });
