@@ -182,20 +182,11 @@ impl TaskControlBlock {
             .unwrap()
             .ppn();
         // push arguments on user stack
-        user_sp -= (args.len() + 1) * core::mem::size_of::<usize>();
-        let argv_base = user_sp;
-        let mut argv: Vec<_> = (0..=args.len())
-            .map(|arg| {
-                translated_refmut(
-                    memory_set.token(),
-                    (argv_base + arg * core::mem::size_of::<usize>()) as *mut usize,
-                )
-            })
-            .collect();
-        *argv[args.len()] = 0;
-        for i in 0..args.len() {
+        let mut argv = Vec::new();
+        argv.push(args.len());
+        for i in (0..args.len()).rev() {
             user_sp -= args[i].len() + 1;
-            *argv[i] = user_sp;
+            argv.push(user_sp);
             let mut p = user_sp;
             for c in args[i].as_bytes() {
                 *translated_refmut(memory_set.token(), p as *mut u8) = *c;
@@ -203,8 +194,13 @@ impl TaskControlBlock {
             }
             *translated_refmut(memory_set.token(), p as *mut u8) = 0;
         }
+        argv.push(0);
+        for i in (0..argv.len()).rev() {
+            user_sp -= core::mem::size_of::<usize>();
+            let p = user_sp;
+            *(translated_refmut(memory_set.token(), p as *mut usize)) = argv[i];
+        }
         // make the user_sp aligned to 8B for k210 platform
-        user_sp -= user_sp % core::mem::size_of::<usize>();
 
         // **** access current TCB exclusively
         let mut inner = self.inner_exclusive_access();
@@ -221,7 +217,7 @@ impl TaskControlBlock {
             trap_handler as usize,
         );
         trap_cx.x[10] = args.len();
-        trap_cx.x[11] = argv_base;
+        trap_cx.x[11] = user_sp;
         *inner.get_trap_cx() = trap_cx;
         // **** release current PCB
     }
