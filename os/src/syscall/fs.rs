@@ -1,8 +1,14 @@
 //! File and filesystem-related syscalls
+
 use crate::fs::{make_pipe, open_file, OpenFlags, Stat};
-use crate::mm::{translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
+use crate::mm::{translated_byte_buffer, translated_refmut, translated_str, UserBuffer, user_data};
 use crate::task::{current_task, current_user_token};
 use alloc::sync::Arc;
+
+pub struct IoVec {
+    iov_base: usize,
+    pub iov_len: usize,
+}
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
@@ -46,6 +52,30 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
         -1
     }
 }
+
+pub fn sys_writev(fd: usize, buf: *const IoVec, len: usize) -> isize {
+    let token = current_user_token();
+    let buf = user_data(token, buf);
+    trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
+    info!("{} {}", fd, len);
+    let mut ret = 0isize;
+    for i in 0usize..len{
+        info!("{}", i);
+        unsafe {
+            let t = sys_write(
+                fd,
+                (*buf.wrapping_add(i)).iov_base as *const u8,
+                (*buf.wrapping_add(i)).iov_len
+            );
+            if t == -1{
+                return -1
+            }
+            ret += t;
+        }
+    }
+    ret
+}
+
 
 pub fn sys_open(path: *const u8, flags: u32) -> isize {
 	trace!("kernel:pid[{}] sys_open", current_task().unwrap().pid.0);

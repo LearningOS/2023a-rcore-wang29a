@@ -4,9 +4,12 @@ use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle, SignalActions, Sign
 use crate::{
     config::TRAP_CONTEXT_BASE,
     fs::{File, Stdin, Stdout},
-    mm::{translated_refmut, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE},
+    mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE, 
+        // translated_refmut
+    },
     sync::UPSafeCell,
-    trap::{trap_handler, TrapContext},
+    trap::{trap_handler, TrapContext}, 
+    loaders::ElfLoader,
 };
 use alloc::{
     string::String,
@@ -176,30 +179,38 @@ impl TaskControlBlock {
     /// Load a new elf to replace the original application address space and start execution
     pub fn exec(&self, elf_data: &[u8], args: Vec<String>) {
         // memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set, mut user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        // let (memory_set, mut user_sp, entry_point) = MemorySet::from_elf(elf_data);
         let trap_cx_ppn = memory_set
             .translate(VirtAddr::from(TRAP_CONTEXT_BASE).into())
             .unwrap()
             .ppn();
         // push arguments on user stack
-        let mut argv = Vec::new();
-        argv.push(args.len());
-        for i in (0..args.len()).rev() {
-            user_sp -= args[i].len() + 1;
-            argv.push(user_sp);
-            let mut p = user_sp;
-            for c in args[i].as_bytes() {
-                *translated_refmut(memory_set.token(), p as *mut u8) = *c;
-                p += 1;
-            }
-            *translated_refmut(memory_set.token(), p as *mut u8) = 0;
-        }
-        argv.push(0);
-        for i in (0..argv.len()).rev() {
-            user_sp -= core::mem::size_of::<usize>();
-            let p = user_sp;
-            *(translated_refmut(memory_set.token(), p as *mut usize)) = argv[i];
-        }
+        let elfloader = ElfLoader::new(elf_data);
+        let size =  args.len();
+        let user_sp = elfloader.unwrap().init_stack(
+            memory_set.token(),
+            user_sp,
+            args
+        );
+        // let mut argv = Vec::new();
+        // argv.push(args.len());
+        // for i in (0..args.len()).rev() {
+        //     user_sp -= args[i].len() + 1;
+        //     argv.push(user_sp);
+        //     let mut p = user_sp;
+        //     for c in args[i].as_bytes() {
+        //         *translated_refmut(memory_set.token(), p as *mut u8) = *c;
+        //         p += 1;
+        //     }
+        //     *translated_refmut(memory_set.token(), p as *mut u8) = 0;
+        // }
+        // argv.push(0);
+        // for i in (0..argv.len()).rev() {
+        //     user_sp -= core::mem::size_of::<usize>();
+        //     let p = user_sp;
+        //     *(translated_refmut(memory_set.token(), p as *mut usize)) = argv[i];
+        // }
         // make the user_sp aligned to 8B for k210 platform
 
         // **** access current TCB exclusively
@@ -216,7 +227,7 @@ impl TaskControlBlock {
             self.kernel_stack.get_top(),
             trap_handler as usize,
         );
-        trap_cx.x[10] = args.len();
+        trap_cx.x[10] = size;
         trap_cx.x[11] = user_sp;
         *inner.get_trap_cx() = trap_cx;
         // **** release current PCB

@@ -21,6 +21,7 @@ use page_table::PTEFlags;
 pub use page_table::{
     translated_byte_buffer, translated_ref, translated_refmut, translated_str, PageTable,
     PageTableEntry, UserBuffer, UserBufferIterator,
+    user_data,
 };
 
 /// initiate heap allocator, frame allocator and kernel space
