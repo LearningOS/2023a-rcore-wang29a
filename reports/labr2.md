@@ -18,10 +18,12 @@
 
 参数提供的是 Vector I/O data structure，以及对应的元素个数
 
+安照syscall_write，添加syscall_writev。
+
 
 ### syscall_exit_group
 
-直接调用`syscall_exit`
+直接调用`syscall_exit`，使用的是`ch7`分支，没有实现线程。
 
 ## 代码
 
@@ -52,4 +54,5 @@ pub fn sys_writev(fd: usize, buf: *const IoVec, len: usize) -> isize {
 
 ## 问答题目
 
-**TODO**
+options的可能值,通过查找`musl`源码，发现只有一种可能值`0`
+![](https://raw.githubusercontent.com/wang29a/image/master/20231114084725.png)
